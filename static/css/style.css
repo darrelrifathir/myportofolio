@@ -193,3 +193,47 @@ h1, .brand {
         justify-content: flex-start;
     }
 }
+
+/* Section Education */
+.education {
+    padding: 4rem 0;
+    background-color: #f5eedf; 
+}
+
+.section-title {
+    font-family: "Space Grotesk", -apple-system, sans-serif;
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    color: var(--ink);
+}
+
+.edu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.edu-card {
+    background-color: var(--paper);
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+}
+
+.edu-year {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+}
+
+.edu-school {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.edu-desc {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
