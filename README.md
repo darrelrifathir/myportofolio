@@ -73,3 +73,47 @@ Dalam pengembangan tugas ini, saya menggunakan asisten AI (Gemini) sebagai partn
         *   *Respons AI:* AI menyarankan penambahan kelas `.edu-img-box` dengan `display: flex` dan `.edu-logo` dengan `object-fit: contain`. Properti ini berfungsi untuk memaksa gambar menyesuaikan diri ke dalam rasio kotak tanpa membuatnya terdistorsi atau gepeng.
     *   *Prompt 3:* "oke gw udah bisa gambarnya, tapi i think ini keknya kotaknya kegedean gak sih? Agak kecilin kotaknya dong biar dia tetep fit [Melampirkan *screenshot* kotak logo yang terlalu banyak ruang kosong]"
         *   *Respons AI:* AI memberikan revisi CSS untuk menyesuaikan tinggi kotak dengan menyarankan perubahan nilai `height` menjadi `110px` dan `padding` menjadi `1rem` pada class `.edu-img-box` agar kontainer lebih bagus dalam membungkus logo univ/sekolah.
+
+# Tugas 2
+## Jawaban Pertanyaan Reflektif
+
+### 1. Jelaskan alur yang terjadi ketika pengguna membuka halaman portofolio baru, mulai dari permintaan yang diterima proyek hingga data ditampilkan pada browser. Dalam jawabanmu, jelaskan peran urls.py proyek, urls.py aplikasi, view, model, dan template.
+Alur arsitektur MVT (Model-View-Template) saat pengguna membuka halaman yang saya buat, `/certification/` adalah sebagai berikut:
+* **Request:** Browser mengirimkan HTTP Request ke server web.
+* **urls.py proyek (`portofolio/urls.py`):** Bertindak sebagai *router* utama. Ia menerima request dan meneruskannya ke *router* spesifik aplikasi `main` menggunakan `include('main.urls')`.
+* **urls.py aplikasi (`main/urls.py`):** Mencocokkan *path* `/certification/` dengan fungsi *named route* dan meneruskannya ke fungsi *view* yang tepat, yaitu `show_certification`.
+* **View (`views.py`):** Berperan seperti jembatan untuk fungsi `show_certification` agar ia memanggil Model untuk meminta data.
+* **Model (`models.py`):** Bertugas mengambil data objek-objek `Certification` dari *database*, lalu mengembalikannya ke View.
+* **Template (`certification.html`):** View membungkus data tersebut ke dalam *context* dan memberikannya ke Template. Template kemudian memproses data menggunakan *Django Template Language* (seperti `{% for %}`) untuk merender struktur HTML secara dinamis.
+* **Response:** HTML yang sudah dirender beserta datanya dikembalikan oleh View sebagai HTTP Response untuk ditampilkan di browser pengguna.
+
+### 2. Mengapa data untuk bagian portofolio baru sebaiknya disimpan pada model dan tidak ditulis langsung di dalam template? Jelaskan dampaknya terhadap kemudahan pemeliharaan dan pengembangan aplikasi.
+Menyimpan data pada Model bertujuan untuk memisahkan antara logika data dan dari segi UI. Dengan menyimpan data pada model, akan berdampak kepada kemudahan pemeliharaan dan pengembangan aplikasi yang cukup signifikan:
+* **Kemudahan Pemeliharaan:** Jika saya ingin menambah, mengubah, atau menghapus sertifikasi baru, saya hanya perlu mengubah isi *database*  melalui Django shell tanpa perlu menyentuh atau mengedit teks secara *hard-coded* di file HTML yang ingin saya tambahkan. 
+* **Skalabilitas:** Template HTML cukup ditulis satu kali menggunakan perulangan, memudahkan saya untuk mengakses banyak data terutama jika ukuran data nya sangat besar, sehingga kode template html tidak terlalu panjang dan terlihat lebih *clean*.
+
+### 3. Apa perbedaan fungsi makemigrations dan migrate pada Django? Berikan contoh perubahan model yang mengharuskanmu menjalankan kedua perintah tersebut.
+* **`makemigrations`:** Berfungsi untuk mendeteksi perubahan pada object **Class** di `models.py` dan membuatkan *file blueprint* migrasi baru yang mencatat rencana perubahan tersebut. Perintah ini belum mengubah *database* sama sekali.
+* **`migrate`:** Berfungsi untuk menerapkan perubahan yang tercatat di dalam *file blueprint* migrasi ke dalam *database* sesungguhnya (mengeksekusi SQL untuk membuat/mengubah tabel).
+
+* **Contoh Kasus pada nomer 3**:
+Ketika saya menambahkan field baru `thumbnail = models.CharField(...)` pada model `Certification` yang sudah ada, saya harus menjalankan `makemigrations` agar Django membuat file migrasi yang mencatat penambahan kolom tersebut. Setelah itu, saya menjalankan `migrate` agar tabel `main_certification` di dalam *database* benar-benar diperbarui dengan kolom `thumbnail` yang baru.
+
+## AI Disclosure & Log Prompting
+Dalam mengerjakan tugas 2 ini, saya menggunakan asisten AI (Gemini) sebagai partner diskusi untuk hal-hal bersifat teknis. 
+
+*   **Tools yang Digunakan:** Gemini 3.1 Pro
+*   **Strategi Prompting:** Saya tidak meminta AI menulis seluruh kode dari awal, melainkan meminta panduan langkah demi langkah sesuai *checklist* MVT Django, serta memberikan log *error*, potongan kode (seperti penggunaan Django Shell), atau *screenshot* saat mengalami kendala teknis agar dapat kita pecahkan bersama.
+*   **Bagian Spesifik yang Dibantu AI:**
+    *   Pemecahan masalah asinkronisasi data antara *database* lokal (`db.sqlite3`) dengan server PWS.
+    *   Debugging gambar *broken link* dari *image hosting* pihak ketiga dan transisi ke penyimpanan *static* di lokal.
+    *   Penyelesaian masalah duplikasi data (*Multiple Objects Returned*) pada Django ORM di terminal.
+*   **Analisis Kritis Keterbatasan AI & Perbaikan Manual:** 
+    Pada saat saya ingin menambahkan fitur `thumbnail` pada sertifikasi, AI awalnya menyarankan penggunaan `URLField` untuk menyimpan tautan gambar dari *image hosting* eksternal. Namun, AI kurang mengantisipasi restriksi *hotlinking* dan kesulitan ekstraksi *direct link* dari platform seperti ImgBB yang menyebabkan gambar tetap rusak (*broken image*) saat dirender di HTML. Menyadari keterbatasan tersebut, saya mengambil keputusan manual untuk mengabaikan penggunaan *URL hosting* luar. Saya merombak model `thumbnail` menjadi `CharField`, melakukan migrasi ulang, dan memindahkan aset gambar secara manual ke dalam direktori lokal `/static/img/` proyek agar aset terjamin dapat diakses tanpa bergantung pada server eksternal.
+*   **Log Prompting:**
+    *   *Prompt 1:* "gw udah push, tapi kok experience nya gaada lagi kalo gw liat di PWS? tapi kalo gw buka http localhost 8000 sendiri itu masih ada [Melampirkan screenshot halaman PWS yang isi experiencenya kosong]"
+        *   *Respons AI:* AI menjelaskan bahwa file `db.sqlite3` masuk ke dalam `.gitignore` sehingga data lokal tidak ikut ter-*push* ke PWS. AI meyakinkan bahwa kondisi ini normal karena server produksi PWS membuat *database* baru yang masih kosong.
+    *   *Prompt 2:* "Ini kenapa begini ya? gw jadinya pake imgbb buat host gambar tapi kek gini jadinya [Melampirkan screenshot logo *broken image* pada card Certification]"
+        *   *Respons AI:* AI mendiagnosis bahwa tag `<img>` di HTML gagal merender gambar karena URL yang dimasukkan adalah halaman *viewer* ImgBB, bukan *direct link* (tautan langsung berakhiran .jpg/.png), lalu mencoba memandu cara mengekstrak *link* tersebut.
+    *   *Prompt 3:* "oke gw udah migrate tapi masalahnya udah gw tambahin object baru, bukannya malah hapus objek yg lama. Title nya sama lagi, gimana hapus yg sebelumnya?"
+        *   *Respons AI:* AI mendiagnosis bahwa karena ada dua objek dengan judul yang sama, akan memicu *error* `MultipleObjectsReturned` ke depannya. AI memberikan solusi query `Certification.objects.filter(...).delete()` melalui Django Shell untuk membersihkan data duplikat secara aman sebelum membuat ulang objek finalnya.
