@@ -23,31 +23,30 @@
     </header>
 
     <main>
-        <section class="experience-section" id="experience">
+        <section class="experience-section" id="certification">
             <div class="container">
-                <p class="section-kicker">Perjalanan saya sejauh ini</p>
-                <h1>Experience</h1>
+                <p class="section-kicker">What I've learned</p>
+                <h1>My Certifications</h1>
 
                 <div class="experience-grid">
-                    {% for experience in experience_list %}
+                    {% for cert in certifications %}
                         <article class="experience-card">
-                            <span class="experience-category">
-                                {{ experience.get_category_display }}
-                            </span>
-                            <h2>{{ experience.title }}</h2>
-                            <p class="experience-description">
-                                {{ experience.description }}
-                            </p>
-
-                            {% if experience.is_ongoing %}
-                                <p class="experience-status">Sedang berlangsung</p>
-                            {% else %}
-                                <p class="experience-status">Selesai</p>
+                            {% if cert.thumbnail %}
+                                <img src="{{ cert.thumbnail }}" alt="Sertifikat {{ cert.title }}" style="width: 100%; border-radius: 4px; margin-bottom: 1rem; object-fit: cover; max-height: 200px;">
                             {% endif %}
+
+                            <span class="experience-category">
+                                {{ cert.issuer }} &middot; {{ cert.date_issued|date:"F Y" }}
+                            </span>
+                            <h2>{{ cert.title }}</h2>
+                            <p class="experience-description">
+                                {{ cert.description }}
+                            </p>
                         </article>
+                    <!-- Kalo database nya kosong -->
                     {% empty %}
                         <p class="empty-state">
-                            Belum ada pengalaman yang ditambahkan.
+                            Belum ada sertifikasi yang ditambahkan.
                         </p>
                     {% endfor %}
                 </div>
@@ -55,6 +54,10 @@
         </section>
     </main>
 
-    
+    <footer class="site-footer">
+        <div class="container">
+            <p>&copy; 2026 {{ name }}. Fakultas Ilmu Komputer, Universitas Indonesia.</p>
+        </div>
+    </footer>
 </body>
 </html>
