@@ -151,3 +151,5 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+CSRF_TRUSTED_ORIGINS = ["https://darrel-rifathir-myportofolio.pws.cs.ui.ac.id/"]

@@ -6,7 +6,7 @@ Kelas: C
 Repositori ini berisi kode untuk website (*static web*) pribadi, dibangun dengan Django (sebagai *server* dasar) serta HTML5 dan CSS3 untuk *interface* nya
 
 # Tugas 1
-## Progres Pekan ini dan Instruksi Setup Mingguan (31 Agustus &mdash; 7 September 2026):
+## Progres Pekan ini dan Instruksi Setup Mingguan (31 Agustus - 7 September 2026):
 Pada tugas pertama ini, saya telah menambahkan bagian *education* pada portofolio pribadi saya yang berisi riwayat pendidikan, disertai dengan deskripsinya. Berikut rincian mengenai hal-hal apa saya yang saya kembangkan pada pekan ini:
 *   Menambahkan bagian **Education** (Riwayat Pendidikan) yang merender *cards* pengalaman secara rapi.
 *   Menyematkan logo sekolah/universitas dengan rasio yang disesuaikan menggunakan *CSS properties* (`object-fit: contain`, pembungkus kotak putih melengkung).

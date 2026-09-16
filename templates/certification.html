@@ -1,3 +1,4 @@
+{% extends 'base.html' %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,6 +23,7 @@
         </div>
     </header>
 
+    {% block content %}
     <main>
         <section class="experience-section" id="certification">
             <div class="container">
@@ -53,6 +55,7 @@
             </div>
         </section>
     </main>
+    {% endblock content %}
 
     <footer class="site-footer">
         <div class="container">
