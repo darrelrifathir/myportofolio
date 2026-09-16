@@ -1,4 +1,4 @@
-from django.forms import ModelForm, TextInput, Textarea, DateInput
+from django.forms import ModelForm, TextInput, Textarea, DateInput, URLInput
 from main.models import Certification
 
 class CertificationForm(ModelForm):
@@ -44,9 +44,9 @@ class CertificationForm(ModelForm):
                     "maxlength": "500",
                 }
             ),
-            "thumbnail": TextInput(
+            "thumbnail": URLInput(
                 attrs={
-                    "placeholder": "https://url-gambar-kamu.com/gambar.jpg"
+                    "placeholder": "https://..."
                 }
             ),
         }

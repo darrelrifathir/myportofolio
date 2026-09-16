@@ -32,7 +32,7 @@ class Certification(models.Model) :
     issuer = models.CharField(max_length=255) 
     date_issued = models.DateField() 
     description = models.TextField() 
-    thumbnail = models.CharField(max_length=255, blank=True, null=True)
+    thumbnail = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return self.title
