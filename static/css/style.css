@@ -600,3 +600,7 @@ h1, .brand {
         text-align: center;
     }
 }
+
+.project-delete-modal:popover-open {
+    display: flex; 
+}

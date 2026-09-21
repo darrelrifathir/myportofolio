@@ -44,11 +44,17 @@
                             {{ cert.description }}
                         </p>
                         
-                        <!-- TOMBOL HAPUS BARU -->
                         <div class="project-card-actions">
                             <div class="project-actions">
+                                <!-- Tombol Edit yg baru -->
+                                <a href="{% url 'main:edit_certification' cert.id %}" class="button button-secondary">
+                                    Edit
+                                </a>
+                                
+                                <!-- Tombol Hapus -->
                                 {% include "components/certification_delete_modal.html" with cert=cert %}
                             </div>
+                            
                         </div>
                     </article>
 

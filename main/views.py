@@ -79,3 +79,23 @@ def delete_certification(request, certification_id):
         messages.success(request, "Sertifikasi berhasil dihapus!")
         
     return redirect("main:show_certification")
+
+def edit_certification(request, certification_id):
+    certification = get_object_or_404(Certification, pk=certification_id)
+
+    # Isi form dengan instance data lama (jika request GET) atau data baru (jika POST)
+    form = CertificationForm(request.POST or None, instance=certification)
+
+    if request.method == "POST":
+        form.save()
+        messages.success(request, "Sertifikasi Anda berhasil diperbarui")
+        return redirect("main:show_certification")
+
+    context = {
+        "name": "Darrel Rifathir Arwa",
+        "form": form,
+        "certification": certification,
+    }
+
+    return render(request, "edit_certification.html", context)
+

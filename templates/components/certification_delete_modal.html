@@ -1,12 +1,10 @@
-<p class="experience-status">
-    <button type="button"
-            class="button button-danger"
-            popovertarget="delete-cert-{{ cert.id }}"
-            aria-label="Hapus {{ cert.title }}"
-            title="Hapus sertifikasi">
-        Hapus Sertifikasi
-    </button>
-</p>
+<button type="button"
+        class="button button-danger"
+        popovertarget="delete-cert-{{ cert.id }}"
+        aria-label="Hapus {{ cert.title }}"
+        title="Hapus sertifikasi">
+    Hapus Sertifikasi
+</button>
 
 <div id="delete-cert-{{ cert.id }}"
      class="project-delete-modal"
@@ -16,14 +14,14 @@
      aria-labelledby="delete-cert-title-{{ cert.id }}">
     
     <button type="button"
-            class="project-delete-modal_backdrop"
+            class="project-delete-modal__backdrop"
             popovertarget="delete-cert-{{ cert.id }}"
             popovertargetaction="hide"
             aria-label="Tutup konfirmasi hapus"></button>
     
-    <div class="project-delete-modal_content">
+    <div class="project-delete-modal__content">
         <button type="button"
-                class="project-delete-modal_close"
+                class="project-delete-modal__close"
                 popovertarget="delete-cert-{{ cert.id }}"
                 popovertargetaction="hide"
                 aria-label="Tutup konfirmasi hapus">×</button>
@@ -34,7 +32,7 @@
             <strong>{{ cert.title }}</strong>?
         </p>
         
-        <div class="project-delete-modal_actions">
+        <div class="project-delete-modal__actions">
             <button type="button"
                     class="button button-secondary"
                     popovertarget="delete-cert-{{ cert.id }}"
