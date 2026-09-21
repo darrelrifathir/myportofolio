@@ -117,3 +117,40 @@ Dalam mengerjakan tugas 2 ini, saya menggunakan asisten AI (Gemini) sebagai part
         *   *Respons AI:* AI mendiagnosis bahwa tag `<img>` di HTML gagal merender gambar karena URL yang dimasukkan adalah halaman *viewer* ImgBB, bukan *direct link* (tautan langsung berakhiran .jpg/.png), lalu mencoba memandu cara mengekstrak *link* tersebut.
     *   *Prompt 3:* "oke gw udah migrate tapi masalahnya udah gw tambahin object baru, bukannya malah hapus objek yg lama. Title nya sama lagi, gimana hapus yg sebelumnya?"
         *   *Respons AI:* AI mendiagnosis bahwa karena ada dua objek dengan judul yang sama, akan memicu *error* `MultipleObjectsReturned` ke depannya. AI memberikan solusi query `Certification.objects.filter(...).delete()` melalui Django Shell untuk membersihkan data duplikat secara aman sebelum membuat ulang objek finalnya.
+
+# Tugas 3
+## Jawaban Pertanyaan Reflektif
+
+### 1. Jelaskan mengapa kita menggunakan ModelForm pada Django alih-alih membuat form HTML secara manual. Selain itu, jelaskan pula mengapa kita diwajibkan menambahkan `{% csrf_token %}` pada form tersebut!
+Kita menggunakan `ModelForm` karena jauh lebih efisien dan mengurangi repetisi kode secara terus-menerus. Django akan secara otomatis *men-generate* tag `<input>` HTML berdasarkan struktur model yang sudah kita buat, sehingga kita tidak perlu membuat form manual dari nol. Selain itu, `ModelForm` secara otomatis menangani logika validasi data dan mempermudah proses penyimpanan data langsung ke database melalui `form.save()`. 
+Kita diwajibkan menggunakan `{% csrf_token %}` sebagai sistem keamanan bawaan Django untuk mencegah serangan CSRF (*Cross-Site Request Forgery*). Token unik ini memastikan bahwa data form yang dikirim (request `POST`) benar-benar berasal dari *website* kita sendiri, bukan dari situs lain yang memalsukan identitas misalnya. Tanpa token ini, Django akan memblokir form dan menghasilkan *error 403 Forbidden*.
+
+### 2. Pada Tutorial 03, kita membahas format data JSON dan XML. Mengapa JSON lebih disukai dalam pengembangan aplikasi web modern dibandingkan XML?
+JSON (*JavaScript Object Notation*) lebih disukai karena strukturnya jauh lebih sederhana dan mudah dibaca oleh manusia. JSON hanya menggunakan pasangan *key-value*, mirip seperti struktur *dictionary* di Python. Sebaliknya, XML mengharuskan penggunaan tag pembuka dan penutup yang bersarang (seperti HTML) sehingga membuat ukuran file menjadi lebih "berat" dan panjang. Karena JSON lebih ringan, transmisi datanya melalui jaringan menjadi lebih cepat.
+
+### 3. Jelaskan alur yang terjadi saat kamu menggunakan fungsi view untuk mengembalikan data portofoliomu dalam bentuk JSON. Mengapa kita perlu melakukan proses serialization pada model Django sebelum datanya dikembalikan?
+Alurnya dimulai ketika pengguna atau aplikasi meminta data ke *endpoint* dari suatu URL tertentu (contoh: `/api/certifications/`). *Router* (`urls.py`) akan meneruskan *request* tersebut ke fungsi *view* yang sedang mengerjakan tugasnya (misal: `get_certifications_json`). Di dalam fungsi *view*, Django menggunakan ORM untuk mengambil data dari database (seperti `Certification.objects.all()`). Data yang diambil ini kemudian diserahkan ke fungsi `serializers.serialize()` untuk diubah menjadi format JSON. Terakhir, *view* mengembalikan data JSON tersebut menggunakan `HttpResponse` dengan *content type* `application/json` agar dapat ditampilkan di browser.
+
+Kita wajib melakukan *serialization* karena data yang diambil dari *database* Django hanya berupa objek *class* Python yang kompleks saja. Web browser, JavaScript, atau aplikasi eksternal tidak mengerti cara membaca objek memori Python tersebut. *Serialization* berfungsi menerjemahkan objek Python yang terlihat rumit itu itu menjadi format teks standar (JSON) agar bisa dikirim melalui protokol HTTP dan dipahami oleh berbagai sistem di luar Django.
+
+---
+
+## AI Disclosure & Log Prompting
+Dalam pengembangan tugas 3 ini, saya kembali menggunakan asisten AI sebagai partner diskusi teknis, khususnya untuk memperbaiki *bug* visual pada antarmuka dan *error* pada logika *backend*.
+
+*   **Tools yang Digunakan:** Gemini 3.1 Pro
+*   **Strategi Prompting:** Saya mengarahkan AI untuk fokus pada penyelesaian masalah (*troubleshooting*) dengan membagikan pesan *error* dari *browser*, potongan kode HTML/CSS, dan struktur URL yang saya miliki. Saya tidak meminta kode instan dari nol, melainkan meminta AI menganalisis di mana letak kesalahan sintaks pada fitur yang sedang saya kembangkan.
+*   **Bagian Spesifik yang Dibantu AI:**
+    *   Mendiagnosis dan merapikan struktur tombol *Action* (Edit dan Delete) yang bertumpuk akibat kesalahan struktur `<div>` di *flexbox*.
+    *   Memecahkan *error* `TypeError: cannot unpack non-iterable UUID object` saat fitur Edit diklik dengan menambahkan parameter `pk=` pada pemanggilan ORM Django.
+    *   Menyelaraskan nama *class* CSS (karena *underscore* nya ada yang single dan ada yang double dari tutorial 3) yang menyebabkan pop-up *modal* untuk menghapus tidak terkena-*styling*.
+    *   Mencari solusi untuk merender gambar berukuran besar (17MB) yang gagal dimuat oleh API Google Drive dengan memanfaatkan *raw URL* dari GitHub.
+*   **Analisis Kritis Keterbatasan AI & Perbaikan Manual:** 
+    AI sangat cepat dalam menemukan kesalahan sintaks (seperti lupa menaruh `pk=` saat *query* UUID). Namun, dalam hal *image hosting*, AI awalnya berasumsi bahwa *link* gambar Google Drive saya untuk memberi thumbnail salah satu *certificate* salah atau karena tidak berakhiran ekstensi `.jpg`. AI memberikan saran standar untuk menggunakan platform eksternal seperti Postimages. Setelah saya menganalisis ulang situasinya dan menyadari masalah bukan pada URL melainkan pada ukuran *file* lokal `sertif-ddp0.jpg` yang mencapai 17.3MB, saya mencoba mengambil alih diskusi saya dengan AI tersebut. Saya secara proaktif mencoba memberi ide untuk mengunggah gambar tersebut ke GitHub dan meminta AI untuk mengonfirmasi cara mendapatkan *raw link* dari githubnya. Saya kemudian memutuskan secara manual untuk menghapus file lokal berukuran masif tersebut dari repositori demi menjaga efisiensi *storage*.
+*   **Log Prompting:**
+    *   *Prompt 1:* "wait kok jadinya malah gini ya? [Melampirkan *screenshot* dua tombol Hapus Sertifikasi yang tata letaknya berantakan serta potongan kode HTML]"
+        *   *Respons AI:* AI mendeteksi adanya tag `<p>` berlebih di dalam *include modal* dan adanya pemisahan *container* `<div class="project-actions">` yang menyebabkan CSS *flexbox* gagal merender tombol secara sejajar.
+    *   *Prompt 2:* "Kenapa pas gw pengen hapus sertifikasi jadinya kek gini? Tampilan UI nya emang jelek ya? TErus pas gw klik edit di salah satu certifications malah begini keluarnya, what happened? [Melampirkan *screenshot error TypeError* dan *modal popover* yang desainnya hilang]"
+        *   *Respons AI:* AI memecah masalah menjadi dua. Pertama, AI menemukan bahwa atribut pencarian UUID di `get_object_or_404` kekurangan argumen `pk=`. Kedua, AI menyadari adanya ketidakcocokan penulisan nama *class* BEM CSS, di mana template saya menggunakan `_content` sedangkan CSS diatur menggunakan `__content` (dua *underscore*), sehingga *styling modal* tidak terbaca.
+    *   *Prompt 3:* "tetep gabisa cok, ini keknya ada yang harus gw migrate modelnya ya buat masukin ke thumbnail? ... Ini buat thumbnailnya https://drive.google.com/thumbnail?id=..."
+        *   *Respons AI:* AI mendiagnosis respons API dari *browser* dan menemukan bahwa ukuran gambar sertifikat asli saya terlalu besar sehingga server pembuat *thumbnail* Google Drive mengalami kegagalan proses. AI kemudian mengarahkan metode pengambilan tautan *raw image* langsung dari *repository* GitHub sebagai solusi yang lebih oke.
