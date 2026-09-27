@@ -1,7 +1,6 @@
 from django.urls import path
 
-from main.views import show_main, show_experience, show_certification, create_certification, get_certifications_json, delete_certification, edit_certification
-
+from main.views import show_main, show_experience, show_certification, create_certification, get_certifications_json, delete_certification, edit_certification, register, login_user, logout_user
 app_name = "main"
 
 urlpatterns = [
@@ -12,4 +11,7 @@ urlpatterns = [
     path("api/certifications/", get_certifications_json, name="get_certifications_json"),
     path("certifications/<uuid:certification_id>/delete/", delete_certification, name="delete_certification"),
     path("certifications/<uuid:certification_id>/edit/", edit_certification, name="edit_certification"),
+    path("register/", register, name="register"),   
+    path("login/", login_user, name="login"),
+    path("logout/", logout_user, name="logout"),
 ]
