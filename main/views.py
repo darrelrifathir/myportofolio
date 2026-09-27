@@ -8,6 +8,8 @@ from django.core import serializers
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth import login, logout
 import datetime
+from django.contrib.auth.decorators import login_required  # Tambahkan baris ini
+from django.core.exceptions import PermissionDenied        # Tambahkan baris ini
 
 
 def show_main(request):
@@ -50,7 +52,14 @@ def show_certification(request):
     }
     return render(request, "certification.html", context)
 
+@login_required(login_url="/login/")
 def create_certification(request):
+    # Dua baris berikut yang ditambahkan pada langkah ini.
+    # Cek apakah akun yang sedang login adalah superuser (admin/kamu);
+    # kalau bukan, hentikan permintaannya dengan 403.
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    
     form = CertificationForm(request.POST or None)
 
     if request.method == "POST" and form.is_valid():
@@ -71,12 +80,18 @@ def get_certifications_json(request):
     
     if title_query:
         certifications = certifications.filter(title__icontains=title_query)
-        
-    certifications_json = serializers.serialize("json", certifications)
     
+    certifications_json = serializers.serialize("json", certifications, use_natural_foreign_keys=True)
     return HttpResponse(certifications_json, content_type="application/json")
 
+@login_required(login_url="/login/")
 def delete_certification(request, certification_id):
+    # Dua baris berikut yang ditambahkan pada langkah ini.
+    # Cek apakah akun yang sedang login adalah superuser (admin/kamu);
+    # kalau bukan, hentikan permintaannya dengan 403.
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    
     certification = get_object_or_404(Certification, pk=certification_id)
     
     if request.method == "POST":
@@ -85,9 +100,12 @@ def delete_certification(request, certification_id):
         
     return redirect("main:show_certification")
 
+@login_required(login_url="/login/")
 def edit_certification(request, certification_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    
     certification = get_object_or_404(Certification, pk=certification_id)
-
     # Isi form dengan instance data lama (jika request GET) atau data baru (jika POST)
     form = CertificationForm(request.POST or None, instance=certification)
 
@@ -140,4 +158,17 @@ def logout_user(request):
     response.delete_cookie('last_login')
     return response
 
+# Tanpa cek is_superuser: semua akun yang sudah login boleh memberi star
+@login_required(login_url="/login/")
+def toggle_star(request, certification_id):
+    certification = get_object_or_404(Certification, pk=certification_id)
 
+    if request.method == "POST":
+        # Kalau akun ini sudah pernah memberi star, batalkan star-nya.
+        # Kalau belum, tambahkan star.
+        if request.user in certification.starred_by.all():
+            certification.starred_by.remove(request.user)
+        else:
+            certification.starred_by.add(request.user)
+
+    return redirect("main:show_certification")

@@ -13,9 +13,11 @@
             <!-- TOMBOL TAMBAH -->
             <div class="project-header">
                 <h1>My Certifications</h1>
+                {% if user.is_superuser %}  {# Tambahkan baris ini #}
                 <a href="{% url 'main:create_certification' %}" class="button project-add-button">
                     <span aria-hidden="true">+</span> Tambah Sertifikasi
                 </a>
+                {% endif %}                 {# Tambahkan baris ini #}
             </div>
 
             <!-- FORM PENCARIAN -->
@@ -52,7 +54,10 @@
                                 </a>
                                 
                                 <!-- Tombol Hapus -->
+                                {% include "components/certification_star.html" with certification=cert %}
+                                {% if user.is_superuser %}  {# Tambahkan baris ini #}
                                 {% include "components/certification_delete_modal.html" with cert=cert %}
+                                {% endif %}                 {# Tambahkan baris ini #}
                             </div>
                             
                         </div>
