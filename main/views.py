@@ -45,10 +45,14 @@ def show_certification(request):
     certifications = [cert.object for cert in certifications]
     title_query = request.GET.get("title", "").strip()
 
+    # Cek is_editor
+    is_editor = request.user.is_authenticated and request.user.groups.filter(name='Editor').exists()
+
     context = {
         "name": "Darrel Rifathir Arwa",
         "certifications": certifications,
         "title_query": title_query, 
+        "is_editor": is_editor
     }
     return render(request, "certification.html", context)
 
@@ -102,7 +106,11 @@ def delete_certification(request, certification_id):
 
 @login_required(login_url="/login/")
 def edit_certification(request, certification_id):
-    if not request.user.is_superuser:
+    # Cek dulu dia editor apa bukan
+    is_editor = request.user.groups.filter(name='Editor').exists()
+
+    # Tolak akses jika bukan superuser dan bukan editor
+    if not (request.user.is_superuser or is_editor):
         raise PermissionDenied
     
     certification = get_object_or_404(Certification, pk=certification_id)
