@@ -3,13 +3,14 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from main.models import Experience, Certification
 from main.forms import CertificationForm
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.core import serializers
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth import login, logout
 import datetime
 from django.contrib.auth.decorators import login_required  # Tambahkan baris ini
-from django.core.exceptions import PermissionDenied        # Tambahkan baris ini
+from django.core.exceptions import PermissionDenied     
+from django.views.decorators.http import require_POST
 
 
 def show_main(request):
@@ -34,25 +35,16 @@ def show_experience(request):
     }
     return render(request, "experience.html", context)
 
-def show_certification(request):
-    json_response = get_certifications_json(request)
-    
-    certifications = serializers.deserialize(
-        "json",
-        json_response.content.decode("utf-8"),
-    )
-    
-    certifications = [cert.object for cert in certifications]
+def show_certification(request):    
     title_query = request.GET.get("title", "").strip()
-
     # Cek is_editor
     is_editor = request.user.is_authenticated and request.user.groups.filter(name='Editor').exists()
 
     context = {
         "name": "Darrel Rifathir Arwa",
-        "certifications": certifications,
         "title_query": title_query, 
-        "is_editor": is_editor
+        "is_editor": is_editor,
+        "form": CertificationForm(),
     }
     return render(request, "certification.html", context)
 
@@ -80,13 +72,31 @@ def create_certification(request):
 
 def get_certifications_json(request):
     title_query = request.GET.get("title", "").strip()
-    certifications = Certification.objects.all()
+    certifications = Certification.objects.prefetch_related('starred_by').all()
     
     if title_query:
         certifications = certifications.filter(title__icontains=title_query)
-    
-    certifications_json = serializers.serialize("json", certifications, use_natural_foreign_keys=True)
-    return HttpResponse(certifications_json, content_type="application/json")
+
+    data = []
+    for cert in certifications:
+        starred_users = cert.starred_by.all()
+        is_starred = request.user in starred_users if request.user.is_authenticated else False
+        starred_by_names = ", ".join([u.username for u in starred_users])
+
+        data.append({
+            "pk": str(cert.id),
+            "fields": {
+                "title": cert.title,
+                "issuer": cert.issuer,
+                "date_issued": cert.date_issued,
+                "description": cert.description,
+                "thumbnail": cert.thumbnail,
+                "star_count": starred_users.count(),
+                "is_starred": is_starred,
+                "starred_by_names": starred_by_names,
+            }
+        })
+    return JsonResponse(data, safe=False)
 
 @login_required(login_url="/login/")
 def delete_certification(request, certification_id):
@@ -180,3 +190,21 @@ def toggle_star(request, certification_id):
             certification.starred_by.add(request.user)
 
     return redirect("main:show_certification")
+
+@require_POST
+def create_certification_ajax(request):
+    if not request.user.is_superuser:
+        return JsonResponse(
+            {"message": "Hanya pemilik portofolio yang dapat menambahkan sertifikasi."},
+            status=403,
+        )
+
+    form = CertificationForm(request.POST)
+    if form.is_valid():
+        project = form.save()
+        return JsonResponse(
+            {"message": "Sertifikasi berhasil ditambahkan.", "pk": str(project.id)},
+            status=201,
+        )
+
+    return JsonResponse({"errors": form.errors.get_json_data()}, status=400)
