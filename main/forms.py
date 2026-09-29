@@ -1,5 +1,6 @@
-from django.forms import ModelForm, TextInput, Textarea, DateInput, URLInput
+from django.forms import ModelForm, TextInput, Textarea, DateInput, URLInput, ValidationError
 from main.models import Certification
+from django.utils.html import strip_tags
 
 class CertificationForm(ModelForm):
     class Meta:
@@ -50,3 +51,15 @@ class CertificationForm(ModelForm):
                 }
             ),
         }
+
+    def clean_title(self):
+        title = strip_tags(self.cleaned_data["title"]).strip()
+        if not title:
+            raise ValidationError("Nama sertifikasi tidak boleh hanya berisi tag HTML.")
+        return title
+
+    def clean_issuer(self):
+        return strip_tags(self.cleaned_data["issuer"]).strip()
+
+    def clean_description(self):
+        return strip_tags(self.cleaned_data["description"]).strip()
