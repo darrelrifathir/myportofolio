@@ -1,6 +1,6 @@
 from django.urls import path
 
-from main.views import create_certification_ajax, create_experience_ajax, get_experiences_json, show_main, show_experience, show_certification, create_certification, get_certifications_json, delete_certification, edit_certification, register, login_user, logout_user, toggle_star
+from main.views import create_certification_ajax, create_experience_ajax, delete_experience, edit_experience, get_experiences_json, show_main, show_experience, show_certification, create_certification, get_certifications_json, delete_certification, edit_certification, register, login_user, logout_user, toggle_star
 app_name = "main"
 
 urlpatterns = [
@@ -18,4 +18,6 @@ urlpatterns = [
     path("certification/add-ajax/", create_certification_ajax, name="create_certification_ajax"),
     path("api/experiences/", get_experiences_json, name="get_experiences_json"),
     path("experience/add-ajax/", create_experience_ajax, name="create_experience_ajax"),
+    path("experience/<uuid:experience_id>/edit/", edit_experience, name="edit_experience"),
+    path("experience/<uuid:experience_id>/delete/", delete_experience, name="delete_experience"),
 ]

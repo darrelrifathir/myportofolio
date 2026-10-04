@@ -73,6 +73,7 @@ class ExperienceForm(ModelForm):
         title = strip_tags(self.cleaned_data["title"]).strip()
         if not title:
             raise ValidationError("Judul Experience tidak boleh hanya berisi tag HTML.")
+        return title
 
     def clean_description(self):
         return strip_tags(self.cleaned_data["description"]).strip()

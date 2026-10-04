@@ -253,3 +253,36 @@ def create_experience_ajax(request):
         )
 
     return JsonResponse({"errors": form.errors.get_json_data()}, status=400)
+
+@login_required(login_url="/login/")
+def edit_experience(request, experience_id):
+    is_editor = request.user.groups.filter(name='Editor').exists()
+    if not (request.user.is_superuser or is_editor):
+        raise PermissionDenied
+    
+    experience = get_object_or_404(Experience, pk=experience_id)
+    form = ExperienceForm(request.POST or None, instance=experience)
+
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Pengalaman berhasil diperbarui")
+        return redirect("main:show_experience")
+
+    context = {
+        "name": "Darrel Rifathir Arwa",
+        "form": form,
+        "experience": experience,
+    }
+    return render(request, "edit_experience.html", context)
+
+@login_required(login_url="/login/")
+def delete_experience(request, experience_id):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    
+    experience = get_object_or_404(Experience, pk=experience_id)
+    if request.method == "POST":
+        experience.delete()
+        messages.success(request, "Pengalaman berhasil dihapus!")
+        
+    return redirect("main:show_experience")

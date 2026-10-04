@@ -41,6 +41,8 @@
     // Konfigurasi API
     const BASE_EXP_ENDPOINT = "{% url 'main:get_experiences_json' %}";
     const CREATE_EXP_ENDPOINT = "{% url 'main:create_experience_ajax' %}";
+    const IS_SUPERUSER = "{{ user.is_superuser|yesno:'true,false'}}" === "true";
+    const IS_EDITOR = "{{ is_editor|yesno:'true,false' }}" === "true";
     let expAbortController;
 
     // Elemen DOM
@@ -86,6 +88,7 @@
     // Buat HTML per Experience Card
     function buildExperienceCardElement(item) {
         const exp = item.fields;
+        const expId = item.pk;
         const article = document.createElement('article');
         article.className = 'experience-card';
         
@@ -93,11 +96,28 @@
             ? `<p class="experience-status">Sedang berlangsung</p>` 
             : `<p class="experience-status">Selesai</p>`;
 
+        // URL Action
+        const editUrl = "{% url 'main:edit_experience' '00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', expId);
+        const deleteUrl = "{% url 'main:delete_experience' '00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', expId);
+
+        // Buat tombol sesuai hak akses
+        const editHtml = (IS_SUPERUSER || IS_EDITOR) ? `<a href="${editUrl}" class="button">Edit</a>` : '';
+        const deleteHtml = IS_SUPERUSER ? `
+            <form method="post" action="${deleteUrl}" style="display:inline;">
+                <input type="hidden" name="csrfmiddlewaretoken" value="${getCookie('csrftoken')}">
+                <button type="submit" class="button button-danger" onclick="return confirm('Yakin ingin menghapus pengalaman ini?');">Hapus</button>
+            </form>` : '';
+            
+        const actionHtml = (editHtml || deleteHtml) 
+            ? `<div class="project-card-actions"><div class="project-actions">${editHtml} ${deleteHtml}</div></div>` 
+            : '';
+            
         article.innerHTML = `
             <span class="experience-category">${escapeHtml(exp.category)}</span>
             <h2>${escapeHtml(exp.title)}</h2>
             <p class="experience-description">${escapeHtml(exp.description)}</p>
             ${statusHtml}
+            ${actionHtml}
         `;
         return article;
     }
