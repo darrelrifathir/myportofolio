@@ -2,7 +2,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from main.models import Experience, Certification
-from main.forms import CertificationForm
+from main.forms import CertificationForm, ExperienceForm
 from django.http import HttpResponse, JsonResponse
 from django.core import serializers
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
@@ -29,9 +29,15 @@ def show_main(request):
 
 
 def show_experience(request):
+    title_query = request.GET.get("title", "").strip()
+        # Cek is_editor
+    is_editor = request.user.is_authenticated and request.user.groups.filter(name='Editor').exists()
+
     context = {
         "name": "Darrel Rifathir Arwa",
-        "experience_list": Experience.objects.all(),
+        "title_query": title_query,
+        "is_editor": is_editor,
+        "form": ExperienceForm(),
     }
     return render(request, "experience.html", context)
 
@@ -204,6 +210,45 @@ def create_certification_ajax(request):
         project = form.save()
         return JsonResponse(
             {"message": "Sertifikasi berhasil ditambahkan.", "pk": str(project.id)},
+            status=201,
+        )
+
+    return JsonResponse({"errors": form.errors.get_json_data()}, status=400)
+
+def get_experiences_json(request):
+    title_query = request.GET.get("title", "").strip()
+    experiences = Experience.objects.all()
+
+    if title_query:
+        experiences = experiences.filter(title__icontains=title_query)
+
+    data = []
+    for exp in experiences:
+        data.append({
+            "pk": str(exp.id),
+            "fields": {
+                "title": exp.title,
+                "description": exp.description,
+                "category": exp.category,
+                "thumbnail": exp.thumbnail,
+                "is_ongoing": exp.is_ongoing,
+            }
+        })
+    return JsonResponse(data, safe=False)
+
+@require_POST
+def create_experience_ajax(request):
+    if not request.user.is_superuser:
+        return JsonResponse(
+            {"message": "Hanya pemilik portofolio yang dapat menambahkan pengalaman."},
+            status=403,
+        )
+
+    form = ExperienceForm(request.POST)
+    if form.is_valid():
+        exp = form.save()
+        return JsonResponse(
+            {"message": "Pengalaman berhasil ditambahkan.", "pk": str(exp.id)},
             status=201,
         )
 

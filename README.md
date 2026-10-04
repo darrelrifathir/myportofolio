@@ -154,3 +154,40 @@ Dalam pengembangan tugas 3 ini, saya kembali menggunakan asisten AI sebagai part
         *   *Respons AI:* AI memecah masalah menjadi dua. Pertama, AI menemukan bahwa atribut pencarian UUID di `get_object_or_404` kekurangan argumen `pk=`. Kedua, AI menyadari adanya ketidakcocokan penulisan nama *class* BEM CSS, di mana template saya menggunakan `_content` sedangkan CSS diatur menggunakan `__content` (dua *underscore*), sehingga *styling modal* tidak terbaca.
     *   *Prompt 3:* "tetep gabisa cok, ini keknya ada yang harus gw migrate modelnya ya buat masukin ke thumbnail? ... Ini buat thumbnailnya https://drive.google.com/thumbnail?id=..."
         *   *Respons AI:* AI mendiagnosis respons API dari *browser* dan menemukan bahwa ukuran gambar sertifikat asli saya terlalu besar sehingga server pembuat *thumbnail* Google Drive mengalami kegagalan proses. AI kemudian mengarahkan metode pengambilan tautan *raw image* langsung dari *repository* GitHub sebagai solusi yang lebih oke.
+
+# Tugas 4
+Maaf kak ke skip bikin AI disclosure nya :v
+
+# Tugas 5
+## Jawaban Pertanyaan Reflektif
+
+### 1. Jelaskan apa itu debouncing dan mengapa teknik ini penting diterapkan pada fitur pencarian yang menggunakan AJAX!
+*Debouncing* adalah teknik pemrograman yang digunakan untuk menunda eksekusi sebuah fungsi sampai pengguna berhenti melakukan aksi (for example: mengetik) selama durasi waktu tertentu. Pada fitur pencarian AJAX, teknik ini sangat penting karena mencegah aplikasi mengirim *request* HTTP ke server pada setiap huruf yang diketik. Tanpa *debouncing*, jika kita mengetik 10 huruf secara cepat, akan ada 10 *request* yang dikirim hampir bersamaan, yang mana bisa membebani kinerja server dan membuat antarmuka web menjadi lebih lambat.
+
+### 2. Jelaskan fungsi dari penggunaan await ketika kita menggunakan fetch()! Apa yang akan terjadi jika kita tidak menggunakan await?
+Fungsi `await` digunakan untuk menunda eksekusi baris kode selanjutnya sampai proses *asynchronous* (seperti mengambil data dari server menggunakan `fetch()`) benar-benar selesai dan menghasilkan *response*. Jika kita tidak menggunakan `await`, JavaScript tidak akan menunggu server membalas, melainkan langsung mengeksekusi kode di bawahnya. Akibatnya, saat kode mencoba memproses atau menampilkan data (misalnya dengan `.json()`), datanya masih berstatus *pending* atau kosong (*undefined*), yang akan menyebabkan *error* pada aplikasi sehingga UI gagal memuat daftar portofolio yang diinginkan.
+
+### 3. Jelaskan apa itu serangan XSS (Cross-Site Scripting) dan mengapa data yang ditampilkan melalui AJAX/JavaScript lebih rentan terhadap serangan ini daripada data yang ditampilkan langsung melalui template Django!
+Serangan XSS adalah kerentanan sistem keamanan di mana penyerang dapat menyisipkan script (seperti tag `<script>` atau `<img>` berbahaya) ke dalam situs web, yang kemudian dieksekusi oleh *browser* pengunjung lain. Data yang dirender menggunakan AJAX/JavaScript (seperti mengubah `.innerHTML`) lebih rentan karena *browser* akan langsung membaca dan mengeksekusi tag HTML mentah yang ada di dalam *string* tersebut tanpa difilter terlebih dahulu. Berbeda dengan template bawaan Django, di mana setiap variabel yang diapit `{{ }}` secara otomatis sudah di-*escape* (diubah menjadi sebuah entity yg aman seperti `&lt;` dan `&gt;`) sebelum dikirim ke *browser*, sehingga mematikan fungsi skrip jahat tersebut.
+
+---
+
+## AI Disclosure & Log Prompting
+
+Dalam pengembangan tugas 5 ini, saya kembali menggunakan asisten AI sebagai partner diskusi teknis, khususnya untuk mentransisi aplikasi dari rendering sisi server menjadi aplikasi berbasis AJAX, serta mengimplementasikan keamanan Anti-XSS.
+
+*   **Tools yang Digunakan:** Gemini 3.1 Pro
+*   **Strategi Prompting:** Saya memberikan instruksi bertahap terkait implementasi AJAX, serta memberikan potongan kode seperti fungsi JavaScript yang *error*, *file* `views.py`, dan melampirkan *screenshot DevTools Browser* saat terjadi *bug* pada antarmuka. Saya menggunakan AI untuk mendiagnosis kendala spesifik dan sebagai teman *brainstorming* dibandingkan memintanya membuat seluruh aplikasi dari nol.
+*   **Bagian Spesifik yang Dibantu AI:**
+    *   Mendiagnosis masalah *file* CSS yang tidak terbaca dengan panduan inspeksi melalui tab *Network* dan penanganan *cache browser*.
+    *   Memberikan simulasi cara menyuntikkan *payload* `<img src="x" onerror="alert('XSS!')">` ke dalam form untuk menguji celah keamanan secara lokal.
+    *   Mengonfirmasi dan merapikan logika validasi hak akses (*superuser* dan *editor*) pada *views* saat mengimplementasikan CRUD dengan AJAX.
+*   **Analisis Kritis Keterbatasan AI & Perbaikan Manual:** 
+    Terkadang AI mengalami "halusinasi konteks" dengan memberikan referensi variabel JavaScript yang mengacu pada model *default* tutorial (menggunakan variabel seperti `project.tech_stack` atau `project.project_image_url`) yang tidak ada di struktur *database* saya. Akibatnya, aplikasi sempat gagal merender data. Sebagai perbaikan manual, saya secara mandiri harus menelusuri ulang baris kode JavaScript tersebut dan memetakan variabelnya agar sesuai dengan model saya sendiri (seperti mengubah target data ke `issuer`, `thumbnail`, dan memperbaiki variabel pelemparan UUID).
+*   **Log Prompting:**
+    *   *Prompt 1:* "Wait, kok pas gw buka localhost malah kek gini ya? gw baru buka web nya loh ya [Melampirkan *screenshot* portofolio nya hanya HTML mentah tanpa CSS]"
+        *   *Respons AI:* AI mendiagnosis bahwa *browser* menahan file statis di *cache*. AI menyarankan langkah pengecekan mulai dari *hard refresh* (Ctrl+F5) dan membimbing saya menginspeksi tab *Network* pada *DevTools* untuk melacak status pemuatan file statis.
+    *   *Prompt 2:* "Gw udah bikin buat di bagian show_experience di views.py, saya masih harus nambahin yang kayak di show_certifications kan ya soal title_query sama is_editor nya, untuk misahin apa yg bisa dilakuin semisal yg login itu editor"
+        *   *Respons AI:* AI menyetujui analisis saya dan memvalidasi bahwa pengecekan `is_editor` memang krusial untuk menjaga konsistensi hak akses dari tugas sebelumnya. 
+    *   *Prompt 3:* "Oke kalo begitu, gw gak perlu buat ngerjain yg bagian pendidikan ya? Karena kayak aneh gak sih pendidikan bisa ditambah dan diedit gitu wkwkw, itu biarin jadi data yang statis aja di bagian main ya?"
+        *   *Respons AI:* AI setuju dengan keputusan desain tersebut, mengonfirmasi bahwa tidak semua modul di dalam *website* harus dinamis. AI mendukung pendekatan saya untuk mempertahankan bagian pendidikan sebagai data statis dan memfokuskan penerapan AJAX pada modul *Experience* secara lebih matang.

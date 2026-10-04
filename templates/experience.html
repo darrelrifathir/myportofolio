@@ -5,32 +5,173 @@
     <section class="experience-section" id="experience">
         <div class="container">
             <p class="section-kicker">Perjalanan saya sejauh ini</p>
-            <h1>Experience</h1>
-
-            <div class="experience-grid">
-                {% for experience in experience_list %}
-                    <article class="experience-card">
-                        <span class="experience-category">
-                            {{ experience.get_category_display }}
-                        </span>
-                        <h2>{{ experience.title }}</h2>
-                        <p class="experience-description">
-                            {{ experience.description }}
-                        </p>
-
-                        {% if experience.is_ongoing %}
-                            <p class="experience-status">Sedang berlangsung</p>
-                        {% else %}
-                            <p class="experience-status">Selesai</p>
-                        {% endif %}
-                    </article>
-                {% empty %}
-                    <p class="empty-state">
-                        Belum ada pengalaman yang ditambahkan.
-                    </p>
-                {% endfor %}
+            
+            <div class="project-header">
+                <h1>Experience</h1>
+                {% if user.is_superuser %}
+                <button type="button" class="button project-add-button" popovertarget="add-experience-modal">
+                    <span aria-hidden="true">+</span>
+                    Tambah Pengalaman    
+                </button>
+                {% endif %}
             </div>
+
+            <!-- FORM PENCARIAN (DEBOUNCING) -->
+            <form id="exp-search-form" class="project-search">
+                <input type="search" id="search-input" name="title" placeholder="Cari judul pengalaman..." class="project-search_input">
+                <button type="submit" class="button">Cari</button>
+            </form>
+
+            <!-- STATES -->
+            <div id="loading" class="empty-state hide"><p>Memuat pengalaman...</p></div>
+            <div id="error" class="empty-state hide"><p>Gagal memuat data pengalaman.</p></div>
+            <div id="empty" class="empty-state hide"><p>Belum ada pengalaman yang ditambahkan.</p></div>
+
+            <!-- WADAH KARTU -->
+            <div id="grid" class="experience-grid hide"></div>
         </div>
     </section>
 </main>
+
+{% if user.is_superuser %}
+    {% include "components/experience_form_modal.html" %}
+{% endif %}
+
+<script>
+    // Konfigurasi API
+    const BASE_EXP_ENDPOINT = "{% url 'main:get_experiences_json' %}";
+    const CREATE_EXP_ENDPOINT = "{% url 'main:create_experience_ajax' %}";
+    let expAbortController;
+
+    // Elemen DOM
+    const loadingState = document.getElementById('loading');
+    const errorState = document.getElementById('error');
+    const emptyState = document.getElementById('empty');
+    const gridContainer = document.getElementById('grid');
+    const searchInput = document.getElementById('search-input');
+    const expForm = document.getElementById('experience-form');
+    
+    // Fitur Debouncing
+    const SEARCH_DEBOUNCE_DELAY = 300;
+    let searchDebounceTimer;
+
+    // Utility function for XSS & Cookie
+    function escapeHtml(value) {
+        return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function displayPageSection({ showLoading = false, showError = false, showEmpty = false, showGrid = false }) {
+        loadingState.classList.toggle('hide', !showLoading);
+        errorState.classList.toggle('hide', !showError);
+        emptyState.classList.toggle('hide', !showEmpty);
+        gridContainer.classList.toggle('hide', !showGrid);
+    }
+
+    // Buat HTML per Experience Card
+    function buildExperienceCardElement(item) {
+        const exp = item.fields;
+        const article = document.createElement('article');
+        article.className = 'experience-card';
+        
+        const statusHtml = exp.is_ongoing 
+            ? `<p class="experience-status">Sedang berlangsung</p>` 
+            : `<p class="experience-status">Selesai</p>`;
+
+        article.innerHTML = `
+            <span class="experience-category">${escapeHtml(exp.category)}</span>
+            <h2>${escapeHtml(exp.title)}</h2>
+            <p class="experience-description">${escapeHtml(exp.description)}</p>
+            ${statusHtml}
+        `;
+        return article;
+    }
+
+    // Ambil Data dari AJAX
+    async function fetchExperiences(searchQuery = "") {
+        if (expAbortController) expAbortController.abort();
+        expAbortController = new AbortController();
+
+        try {
+            displayPageSection({ showLoading: true });
+            const url = searchQuery ? `${BASE_EXP_ENDPOINT}?title=${encodeURIComponent(searchQuery)}` : BASE_EXP_ENDPOINT;
+            const response = await fetch(url, { signal: expAbortController.signal });
+            if (!response.ok) throw new Error('Network error');
+
+            const data = await response.json();
+            if (data.length === 0) {
+                displayPageSection({ showEmpty: true });
+            } else {
+                gridContainer.innerHTML = '';
+                data.forEach(item => gridContainer.appendChild(buildExperienceCardElement(item)));
+                displayPageSection({ showGrid: true });
+            }
+        } catch (error) {
+            if (error.name !== 'AbortError') displayPageSection({ showError: true });
+        }
+    }
+
+    // Fitur Cari (Debouncing)
+    searchInput.addEventListener("input", () => {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => fetchExperiences(searchInput.value.trim()), SEARCH_DEBOUNCE_DELAY);
+    });
+
+    document.getElementById('exp-search-form').addEventListener("submit", (e) => {
+        e.preventDefault();
+        clearTimeout(searchDebounceTimer);
+        fetchExperiences(searchInput.value.trim());
+    });
+
+    // Fitur Tambah via AJAX
+    if (expForm) {
+        expForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = expForm.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch(CREATE_EXP_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                    body: new FormData(expForm),
+                });
+                
+                const result = await response.json().catch(() => ({}));
+                
+                if (response.ok) {
+                    expForm.reset();
+                    document.getElementById("add-experience-modal").hidePopover();
+                    showToast('Berhasil', 'Pengalaman baru ditambahkan!', 'success');
+                    fetchExperiences(searchInput.value.trim());
+                } else {
+                    const errorMsg = result.errors ? Object.values(result.errors).flat().map(err => err.message).join(', ') : 'Gagal memproses.';
+                    showToast('Gagal', errorMsg, 'error');
+                }
+            } catch (err) {
+                showToast('Gagal', 'Server terputus', 'error');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    }
+
+    
+    fetchExperiences();
+</script>
 {% endblock content %}
