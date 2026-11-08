@@ -8,12 +8,22 @@ from main.models import Certification
 
 class CertificationAPITest(APITestCase):
     def setUp(self):
+        # Akun Superuser / Owner
         self.owner = User.objects.create_superuser(
             username="owner", password="test-password", email="owner@example.com"
         )
+        # Pengguna Biasa
         self.visitor = User.objects.create_user(
             username="visitor", password="test-password"
         )
+        # Editor (masuk ke grup 'Editor')
+        self.editor = User.objects.create_user(
+            username="editor_user", password="test-password"
+        )
+        self.editor_group = Group.objects.create(name="Editor")
+        self.editor.groups.add(self.editor_group)
+
+        # Objek sertifikasi awal
         self.cert = Certification.objects.create(
             title="CS50x",
             issuer="Harvard University",
@@ -33,6 +43,7 @@ class CertificationAPITest(APITestCase):
         }
 
     def test_public_list_and_detail(self):
+        """Pengunjung anonim dapat membaca daftar dan detail data."""
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data[0]["id"], str(self.cert.id))
@@ -43,36 +54,44 @@ class CertificationAPITest(APITestCase):
         )
 
     def test_search_and_empty_results(self):
+        """Pencarian via parameter query ?title=... berfungsi dengan benar."""
         response = self.client.get(self.list_url, {"title": "CS50"})
         self.assertEqual(len(response.data), 1)
         response = self.client.get(self.list_url, {"title": "not-found"})
         self.assertEqual(response.data, [])
 
     def test_missing_certification(self):
+        """Meminta UUID yang tidak ada mengembalikan 404."""
         url = reverse("api:certification-detail", args=[uuid.uuid4()])
         self.assertEqual(
             self.client.get(url).status_code, status.HTTP_404_NOT_FOUND
         )
 
     def test_guest_and_visitor_cannot_write(self):
+        """Pengunjung anonim dan user biasa ditolak saat mencoba menambah, mengubah, atau menghapus."""
         for user in (None, self.visitor):
             self.client.force_authenticate(user=user)
             self.assertEqual(
                 self.client.post(self.list_url, self.payload, format="json").status_code,
-                403,
+                status.HTTP_403_FORBIDDEN,
             )
             self.assertEqual(
                 self.client.patch(
                     self.detail_url, {"title": "Changed"}, format="json"
                 ).status_code,
-                403,
+                status.HTTP_403_FORBIDDEN,
             )
-            self.assertEqual(self.client.delete(self.detail_url).status_code, 403)
+            self.assertEqual(
+                self.client.delete(self.detail_url).status_code,
+                status.HTTP_403_FORBIDDEN,
+            )
+        # Verifikasi bahwa isi database tidak berubah
         self.assertEqual(Certification.objects.count(), 1)
         self.cert.refresh_from_db()
         self.assertEqual(self.cert.title, "CS50x")
 
     def test_owner_can_create(self):
+        """Owner/Superuser berhasil menambahkan sertifikasi baru (201 Created)."""
         self.client.force_authenticate(user=self.owner)
         response = self.client.post(self.list_url, self.payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -81,6 +100,7 @@ class CertificationAPITest(APITestCase):
         )
 
     def test_validation(self):
+        """Input teks kosong, input berisi tag HTML saja, atau URL berbahaya ditolak (400)."""
         self.client.force_authenticate(user=self.owner)
         for changes, field in [
             ({"title": " "}, "title"),
@@ -95,28 +115,33 @@ class CertificationAPITest(APITestCase):
             self.assertEqual(Certification.objects.count(), 1)
 
     def test_patch_put_and_delete(self):
+        """Owner berhasil melakukan PATCH, PUT, dan DELETE."""
         self.client.force_authenticate(user=self.owner)
         response = self.client.patch(
-            self.detail_url, {"title": "Changed Title"}, format="json"
+            self.detail_url, {"title": "CS50 Introduction"}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.cert.refresh_from_db()
-        self.assertEqual(self.cert.title, "Changed Title")
+        self.assertEqual(self.cert.title, "CS50 Introduction")
 
+        # PUT tidak lengkap harus gagal
         response = self.client.put(
             self.detail_url, {"title": "Incomplete"}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+        # PUT lengkap berhasil
         response = self.client.put(self.detail_url, self.payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+        # DELETE berhasil
         response = self.client.delete(self.detail_url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(response.content, b"")
         self.assertFalse(Certification.objects.filter(pk=self.cert.id).exists())
 
     def test_star_requires_login_and_toggles(self):
+        """Star ditolak untuk anonim (403), dan toggle dengan benar untuk user yang login."""
         self.assertEqual(
             self.client.post(self.star_url).status_code, status.HTTP_403_FORBIDDEN
         )
@@ -130,6 +155,7 @@ class CertificationAPITest(APITestCase):
         self.assertEqual(response.data["star_count"], 0)
 
     def test_computed_fields_are_read_only(self):
+        """Field kalkulasi star tidak dapat dimanipulasi melalui request body klien."""
         self.client.force_authenticate(user=self.owner)
         response = self.client.post(
             self.list_url,
@@ -146,26 +172,34 @@ class CertificationAPITest(APITestCase):
         self.assertEqual(response.data["star_count"], 0)
         self.assertFalse(response.data["is_starred"])
 
-    def test_editor_can_patch_but_cannot_create_or_delete(self):
-        editor_group, _ = Group.objects.get_or_create(name="Editor")
-        self.visitor.groups.add(editor_group)
-
-        self.client.force_authenticate(user=self.visitor)
+    def test_editor_can_patch_and_put_but_cannot_create_or_delete(self):
+        """Editor diizinkan mengubah (PATCH/PUT), tetapi ditolak saat membuat (POST) atau menghapus (DELETE)."""
+        self.client.force_authenticate(user=self.editor)
+        
+        # 1. Editor melakukan PATCH (Diizinkan)
         response = self.client.patch(
             self.detail_url, {"title": "Edited by Editor"}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.cert.refresh_from_db()
+        self.assertEqual(self.cert.title, "Edited by Editor")
 
+        # 2. Editor mencoba POST (Ditolak)
         self.assertEqual(
             self.client.post(self.list_url, self.payload, format="json").status_code,
             status.HTTP_403_FORBIDDEN,
         )
+        self.assertEqual(Certification.objects.count(), 1)
+
+        # 3. Editor mencoba DELETE (Ditolak)
         self.assertEqual(
             self.client.delete(self.detail_url).status_code,
             status.HTTP_403_FORBIDDEN,
         )
+        self.assertEqual(Certification.objects.count(), 1)
 
     def test_wrong_method(self):
+        """Mengirim HTTP method yang tidak terdaftar ditolak dengan 405 Method Not Allowed."""
         self.client.force_authenticate(user=self.owner)
         self.assertEqual(
             self.client.delete(self.list_url).status_code,
@@ -173,6 +207,7 @@ class CertificationAPITest(APITestCase):
         )
 
     def test_session_write_without_csrf_is_rejected(self):
+        """Session write tanpa menyertakan header token CSRF ditolak (403 Forbidden)."""
         client = APIClient(enforce_csrf_checks=True)
         self.assertTrue(client.login(username="owner", password="test-password"))
         response = client.post(self.list_url, self.payload, format="json")
@@ -180,6 +215,7 @@ class CertificationAPITest(APITestCase):
         self.assertEqual(Certification.objects.count(), 1)
 
     def test_session_write_with_csrf_succeeds(self):
+        """Session write dengan header X-CSRFToken berhasil dieksekusi."""
         client = APIClient(enforce_csrf_checks=True)
         client.login(username="owner", password="test-password")
         page = client.get(self.list_url, HTTP_ACCEPT="text/html")

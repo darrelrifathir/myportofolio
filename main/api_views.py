@@ -18,6 +18,10 @@ from main.serializers import CertificationSerializer
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsPortfolioOwnerOrEditorOrReadOnly])
 def certification_list(request):
+    """
+    GET  : Mengambil daftar sertifikasi dengan fitur pencarian query ?title=...
+    POST : Menambahkan sertifikasi baru (hanya diizinkan untuk Superuser).
+    """
     if request.method in ("GET", "HEAD"):
         certifications = (
             Certification.objects.prefetch_related("starred_by")
@@ -26,11 +30,13 @@ def certification_list(request):
         title = request.query_params.get("title", "").strip()
         if title:
             certifications = certifications.filter(title__icontains=title)
+            
         serializer = CertificationSerializer(
             certifications, many=True, context={"request": request}
         )
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # Method POST: Editor ditolak oleh permission class (menghasilkan 403 Forbidden)
     serializer = CertificationSerializer(
         data=request.data, context={"request": request}
     )
@@ -43,17 +49,24 @@ def certification_list(request):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsPortfolioOwnerOrEditorOrReadOnly])
 def certification_detail(request, certification_id):
+    """
+    GET       : Mengambil data detail satu sertifikasi.
+    PUT/PATCH : Memperbarui data (diizinkan untuk Superuser dan Editor).
+    DELETE    : Menghapus data sertifikasi (hanya diizinkan untuk Superuser).
+    """
     cert = get_object_or_404(
         Certification.objects.prefetch_related("starred_by"), pk=certification_id
     )
+
     if request.method in ("GET", "HEAD"):
         serializer = CertificationSerializer(cert, context={"request": request})
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     if request.method == "DELETE":
         cert.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    # Method PUT / PATCH
     serializer = CertificationSerializer(
         cert,
         data=request.data,
@@ -62,17 +75,21 @@ def certification_detail(request, certification_id):
     )
     serializer.is_valid(raise_exception=True)
     serializer.save()
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def certification_star(request, certification_id):
+    """
+    POST : Memberi atau membatalkan star (toggle) untuk akun yang terautentikasi.
+    """
     cert = get_object_or_404(Certification, pk=certification_id)
     if cert.starred_by.filter(pk=request.user.pk).exists():
         cert.starred_by.remove(request.user)
     else:
         cert.starred_by.add(request.user)
+
     serializer = CertificationSerializer(cert, context={"request": request})
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)

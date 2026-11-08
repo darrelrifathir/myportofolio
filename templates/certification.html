@@ -10,7 +10,6 @@
         <div class="container">
             <p class="section-kicker">What I've learned</p>
             
-            <!-- TOMBOL TAMBAH -->
             <div class="project-header">
                 <h1>My Certifications</h1>
                 {% if user.is_superuser %}
@@ -18,9 +17,9 @@
                         class="button project-add-button"
                         popovertarget="add-certification-modal">
                     <span aria-hidden="true">+</span>
-                    Tambah Proyek    
+                    Tambah Sertifikasi
                 </button>
-                {% endif %}                 {# Tambahkan baris ini #}
+                {% endif %}
             </div>
 
             <!-- FORM PENCARIAN -->
@@ -50,19 +49,84 @@
                 <p>Belum ada sertifikasi yang ditambahkan atau ditemukan</p>
             </div>
 
-
-            <div id="grid" class="experience-grid project-grid hide">
-                
-            </div>
+            <!-- GRID WADAH KARTU -->
+            <div id="grid" class="experience-grid project-grid hide"></div>
         </div>
     </section>
 </main>
+
+<!-- MODAL TAMBAH (Hanya Superuser) -->
 {% if user.is_superuser %}
     {% include "components/certification_form_modal.html" %}
 {% endif %}
 
+<!-- MODAL EDIT VIA AJAX (Untuk Superuser dan Editor) -->
+{% if user.is_superuser or is_editor %}
+<div id="edit-certification-modal"
+     class="project-form-modal"
+     popover="auto"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="edit-cert-modal-title">
+    
+    <button type="button"
+            class="project-form-modal__backdrop"
+            popovertarget="edit-certification-modal"
+            popovertargetaction="hide"
+            aria-label="Tutup form edit sertifikasi"></button>
+            
+    <div class="project-form-modal__content">
+        <button type="button"
+                class="project-form-modal__close"
+                popovertarget="edit-certification-modal"
+                popovertargetaction="hide"
+                aria-label="Tutup form edit sertifikasi">×</button>
+                
+        <h2 id="edit-cert-modal-title">Edit Sertifikasi</h2>
+        
+        <form id="edit-certification-form" class="certification-form">
+            <input type="hidden" id="edit-cert-id" name="id">
+            
+            <div class="form-group">
+                <label for="edit-title">Nama Sertifikasi</label>
+                <input type="text" id="edit-title" name="title" class="form-control" required maxlength="255">
+            </div>
+
+            <div class="form-group">
+                <label for="edit-issuer">Penerbit Sertifikasi</label>
+                <input type="text" id="edit-issuer" name="issuer" class="form-control" required maxlength="255">
+            </div>
+
+            <div class="form-group">
+                <label for="edit-date-issued">Tanggal Diterbitkan</label>
+                <input type="date" id="edit-date-issued" name="date_issued" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-description">Deskripsi Sertifikasi</label>
+                <textarea id="edit-description" name="description" class="form-control" rows="3" maxlength="500"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-thumbnail">URL Thumbnail</label>
+                <input type="url" id="edit-thumbnail" name="thumbnail" class="form-control" placeholder="https://...">
+            </div>
+            
+            <div class="project-form-modal__actions">
+                <button type="button" 
+                        class="button button-secondary" 
+                        popovertarget="edit-certification-modal" 
+                        popovertargetaction="hide">Batal</button>
+                <button type="submit" class="button">Simpan Perubahan</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
 {% csrf_token %}
 <script>
+    // Konfigurasi Endpoint API
     const BASE_CERTIFICATIONS_ENDPOINT = "{% url 'api:certification-list' %}";
     const DETAIL_CERTIFICATION_ENDPOINT = "{% url 'api:certification-detail' '00000000-0000-0000-0000-000000000000' %}";
     const STAR_CERTIFICATION_ENDPOINT = "{% url 'api:certification-star' '00000000-0000-0000-0000-000000000000' %}";
@@ -70,14 +134,17 @@
     const IS_AUTHENTICATED = "{{ user.is_authenticated|yesno:'true,false' }}" === "true";
     const IS_EDITOR = "{{ is_editor|yesno:'true,false' }}" === "true";
 
+    // Elemen DOM
     const loadingState = document.getElementById('loading');
     const errorState = document.getElementById('error');
     const emptyState = document.getElementById('empty');
     const gridContainer = document.getElementById('grid');
     const searchForm = document.getElementById('project-search-form');
     const searchInput = document.getElementById('search-input');
-    const certificationForm = document.getElementById('certification-form');
+    const addCertificationForm = document.getElementById('certification-form');
+    const editCertificationForm = document.getElementById('edit-certification-form');
 
+    let currentCertificationsData = [];
     let certAbortController;
     let searchDebounceTimer;
 
@@ -127,7 +194,7 @@
             : `<a href="{% url 'main:login' %}" class="button">Login to star (${cert.star_count})</a>`;
 
         const edit = (IS_SUPERUSER || IS_EDITOR)
-            ? `<a href="/certifications/${escapeHtml(cert.id)}/edit/" class="button">Edit</a>`
+            ? `<button type="button" class="button" data-action="edit" data-id="${escapeHtml(cert.id)}">Edit</button>`
             : '';
 
         const remove = IS_SUPERUSER
@@ -169,6 +236,7 @@
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
+            currentCertificationsData = data;
             gridContainer.replaceChildren(...data.map(buildCertificationCardElement));
             displayPageSection({ showGrid: data.length > 0, showEmpty: data.length === 0 });
         } catch (error) {
@@ -200,56 +268,121 @@
         return data;
     }
 
-    async function addCertification(event) {
-        event.preventDefault();
-        const button = certificationForm.querySelector('button[type="submit"]');
-        button.disabled = true;
+    // 1. Submit Tambah Data (POST)
+    if (addCertificationForm) {
+        addCertificationForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const button = addCertificationForm.querySelector('button[type="submit"]');
+            button.disabled = true;
 
-        try {
-            const fields = new FormData(certificationForm);
-            const payload = Object.fromEntries([
-                'title', 'issuer', 'date_issued', 'description', 'thumbnail'
-            ].map(name => [name, fields.get(name)]));
+            try {
+                const fields = new FormData(addCertificationForm);
+                const payload = Object.fromEntries([
+                    'title', 'issuer', 'date_issued', 'description', 'thumbnail'
+                ].map(name => [name, fields.get(name)]));
 
-            await writeCertification(BASE_CERTIFICATIONS_ENDPOINT, 'POST', payload);
-            certificationForm.reset();
-            document.getElementById('add-certification-modal').hidePopover();
-            showToast('Berhasil', 'Sertifikasi baru berhasil ditambahkan.', 'success');
-            await fetchCertifications(searchInput.value.trim());
-        } catch (error) {
-            showToast('Gagal Menambahkan', error.message, 'error');
-        } finally {
-            button.disabled = false;
-        }
+                await writeCertification(BASE_CERTIFICATIONS_ENDPOINT, 'POST', payload);
+                addCertificationForm.reset();
+                document.getElementById('add-certification-modal')?.hidePopover();
+                showToast('Berhasil', 'Sertifikasi baru berhasil ditambahkan.', 'success');
+                await fetchCertifications(searchInput.value.trim());
+            } catch (error) {
+                showToast('Gagal Menambahkan', error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        });
     }
 
-    if (certificationForm) {
-        certificationForm.addEventListener('submit', addCertification);
+    // 2. Submit Edit Data (PATCH via AJAX)
+    if (editCertificationForm) {
+        editCertificationForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const button = editCertificationForm.querySelector('button[type="submit"]');
+            button.disabled = true;
+
+            const certId = document.getElementById('edit-cert-id').value;
+            try {
+                const payload = {
+                    title: document.getElementById('edit-title').value,
+                    issuer: document.getElementById('edit-issuer').value,
+                    date_issued: document.getElementById('edit-date-issued').value,
+                    description: document.getElementById('edit-description').value,
+                    thumbnail: document.getElementById('edit-thumbnail').value,
+                };
+
+                await writeCertification(
+                    certEndpoint(DETAIL_CERTIFICATION_ENDPOINT, certId),
+                    'PATCH',
+                    payload
+                );
+
+                document.getElementById('edit-certification-modal')?.hidePopover();
+                showToast('Berhasil', 'Sertifikasi berhasil diperbarui.', 'success');
+                await fetchCertifications(searchInput.value.trim());
+            } catch (error) {
+                showToast('Gagal Memperbarui', error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+        });
     }
 
+    // 3. Event Delegation untuk Tombol Action (Star, Delete, Edit)
     gridContainer.addEventListener('click', async function(event) {
         const button = event.target.closest('button[data-action]');
         if (!button || button.disabled) return;
 
         const action = button.dataset.action;
-        if (action === 'delete' && !window.confirm('Yakin ingin menghapus sertifikasi ini?')) return;
+        const certId = button.dataset.id;
 
-        button.disabled = true;
-        try {
-            const pattern = action === 'star' ? STAR_CERTIFICATION_ENDPOINT : DETAIL_CERTIFICATION_ENDPOINT;
-            await writeCertification(
-                certEndpoint(pattern, button.dataset.id),
-                action === 'star' ? 'POST' : 'DELETE'
-            );
-            showToast('Sukses', action === 'star' ? 'Star diperbarui.' : 'Sertifikasi dihapus.', 'success');
-            await fetchCertifications(searchInput.value.trim());
-        } catch (error) {
-            showToast('Gagal', error.message, 'error');
-        } finally {
-            button.disabled = false;
+        // Buka Modal Edit
+        if (action === 'edit') {
+            const certToEdit = currentCertificationsData.find(c => c.id === certId);
+            if (certToEdit) {
+                document.getElementById('edit-cert-id').value = certToEdit.id;
+                document.getElementById('edit-title').value = certToEdit.title;
+                document.getElementById('edit-issuer').value = certToEdit.issuer;
+                document.getElementById('edit-date-issued').value = certToEdit.date_issued;
+                document.getElementById('edit-description').value = certToEdit.description;
+                document.getElementById('edit-thumbnail').value = certToEdit.thumbnail || '';
+                document.getElementById('edit-certification-modal')?.showPopover();
+            }
+            return;
+        }
+
+        // Hapus Data
+        if (action === 'delete') {
+            if (!window.confirm('Yakin ingin menghapus sertifikasi ini?')) return;
+            button.disabled = true;
+            try {
+                await writeCertification(certEndpoint(DETAIL_CERTIFICATION_ENDPOINT, certId), 'DELETE');
+                showToast('Sukses', 'Sertifikasi berhasil dihapus.', 'success');
+                await fetchCertifications(searchInput.value.trim());
+            } catch (error) {
+                showToast('Gagal', error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
+            return;
+        }
+
+        // Toggle Star
+        if (action === 'star') {
+            button.disabled = true;
+            try {
+                await writeCertification(certEndpoint(STAR_CERTIFICATION_ENDPOINT, certId), 'POST');
+                showToast('Sukses', 'Status star berhasil diperbarui.', 'success');
+                await fetchCertifications(searchInput.value.trim());
+            } catch (error) {
+                showToast('Gagal', error.message, 'error');
+            } finally {
+                button.disabled = false;
+            }
         }
     });
 
+    // Debouncing (300 ms)
     searchInput.addEventListener('input', function() {
         clearTimeout(searchDebounceTimer);
         searchDebounceTimer = setTimeout(() => {
@@ -263,6 +396,7 @@
         fetchCertifications(searchInput.value.trim());
     });
 
+    // Inisialisasi awal
     fetchCertifications(searchInput.value.trim());
 </script>
 
