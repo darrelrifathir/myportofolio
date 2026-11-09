@@ -191,3 +191,49 @@ Dalam pengembangan tugas 5 ini, saya kembali menggunakan asisten AI sebagai part
         *   *Respons AI:* AI menyetujui analisis saya dan memvalidasi bahwa pengecekan `is_editor` memang krusial untuk menjaga konsistensi hak akses dari tugas sebelumnya. 
     *   *Prompt 3:* "Oke kalo begitu, gw gak perlu buat ngerjain yg bagian pendidikan ya? Karena kayak aneh gak sih pendidikan bisa ditambah dan diedit gitu wkwkw, itu biarin jadi data yang statis aja di bagian main ya?"
         *   *Respons AI:* AI setuju dengan keputusan desain tersebut, mengonfirmasi bahwa tidak semua modul di dalam *website* harus dinamis. AI mendukung pendekatan saya untuk mempertahankan bagian pendidikan sebagai data statis dan memfokuskan penerapan AJAX pada modul *Experience* secara lebih matang.
+
+# Tugas 6
+## Jawaban Pertanyaan Reflektif
+
+### 1. Jelaskan apa yang dimaksud dengan REST dan mengapa mengembalikan JSON saja belum cukup untuk menyebut sebuah API sebagai RESTful! Jelaskan pula perbedaan PUT dan PATCH beserta contoh kapan masing-masing sebaiknya digunakan!
+*REST (Representational State Transfer)* adalah gaya arsitektur perancangan web API yang memperlakukan data sebagai *resource* yang dapat diakses melalui URI/endpoint unik, serta memanfaatkan *HTTP methods* standar (GET, POST, PUT, PATCH, DELETE) untuk menyatakan tindakan yang dilakukan terhadap *resource* tersebut. Mengembalikan data dalam format JSON saja belum cukup untuk menyebut sebuah API sebagai RESTful karena JSON hanyalah format representasi data atau muatan payload saja. Suatu API baru dapat dikatakan RESTful jika mematuhi prinsip-prinsip arsitektur REST, di antaranya: URL murni menunjuk ke *resource* kata benda (misalnya `/api/v1/certifications/`) bukan kata kerja aksi (seperti `/api/add-certification/`), tindakan didefinisikan oleh *HTTP method*, pertukaran data bersifat *stateless*, serta memanfaatkan *HTTP status code* yang tepat untuk merepresentasikan hasil pemrosesan.
+
+Perbedaan utama antara PUT dan PATCH terletak pada cakupan modifikasi datanya:
+*   **PUT** bersifat sebagai penggantian representasi *resource* secara menyeluruh (*full replacement*). Klien wajib mengirimkan seluruh atribut atau *field* wajib dari objek tersebut. Jika ada *field* wajib yang tidak dikirim, server akan menolak permintaan dengan *error*. Contoh penggunaannya adalah ketika pengguna memperbarui seluruh informasi sertifikasi melalui formulir edit lengkap yang mencakup `title`, `issuer`, `date_issued`, `description`, dan `thumbnail` sekaligus.
+*   **PATCH** bersifat sebagai pembaruan parsial (*partial update*). Klien hanya perlu mengirimkan *field* spesifik yang ingin diubah tanpa mempengaruhi nilai *field* lainnya yang tidak disertakan dalam *payload*. Contoh penggunaannya adalah ketika pengguna hanya ingin mengganti judul (*title*) atau URL gambar (*thumbnail*) sertifikasi melalui fitur edit cepat tanpa harus menyertakan kembali teks deskripsi atau tanggal terbitnya.
+
+### 2. Jelaskan peran serializer pada Django REST Framework! Apa keuntungannya dibandingkan merakit dictionary secara manual dengan JsonResponse seperti pada Tutorial 05?
+Peran *serializer* pada Django REST Framework adalah sebagai *two-way converter* antara data kompleks Django (seperti objek Model atau QuerySet) dengan format data primitif Python yang siap dirender menjadi JSON (proses serialisasi), serta mengubah *payload* JSON yang dikirimkan klien menjadi data Python tervalidasi yang siap disimpan ke *database* melalui ORM (proses deserialisasi).
+
+Keuntungannya dibandingkan merakit *dictionary* secara manual dengan `JsonResponse`:
+*   **Validasinya Terpusat dan Deklaratif:** *Serializer* menangani validasi tipe data, format URL, batasan panjang karakter, hingga pembersihan tag HTML (`strip_tags`) secara otomatis dan terpusat melalui method `validate_<field>`, menghasilkan respon *error* `400 Bad Request` yang konsisten dengan rincian *error* per *field*.
+*   **Mendukung Operasi CRUD Bawaan:** Melalui `ModelSerializer`, method `.create()` dan `.update()` sudah terintegrasi langsung dengan model tanpa perlu menulis logika penyimpanan manual *field* demi *field*.
+*   **Kode Lebih Bersih dan Aman:** Menghilangkan perulangan manual (`for loop`) untuk merakit *dictionary* satu per satu, mendukung kalkulasi *field* dinamis melalui `SerializerMethodField` (seperti `star_count` dan status relasi `is_starred`), serta mencegah kebocoran data sensitif karena *field* yang diekspos ditentukan secara eksplisit.
+
+### 3. Jelaskan perbedaan autentikasi dan otorisasi pada Django REST Framework! Mengapa hak akses harus diperiksa dengan permission class di server, bukan hanya dengan menyembunyikan tombol di template?
+*Autentikasi (Authentication)* adalah proses untuk memverifikasi identitas pengguna yang menjawab pertanyaan *"Siapa Anda?"* (misalnya mengenali akun melalui *session cookie* dan mengisi objek `request.user`). Sedangkan *autorisasi (Authorization)* adalah proses penentuan hak akses yang menjawab pertanyaan *"Apa yang boleh Anda lakukan?"*, yaitu memutuskan apakah akun yang sudah teridentifikasi berhak menjalankan suatu tindakan terhadap *resource* tertentu (misalnya membedakan hak akses antara *superuser*, *editor*, dan pengunjung biasa).
+
+Pemeriksaan hak akses ini mutlak harus dilakukan menggunakan `permission_classes` di sisi server karena menyembunyikan tombol di *template* HTML hanyalah aspek kenyamanan antarmuka pengguna (UI/UX) dan tidak memberikan perlindungan keamanan nyata (*security through obscurity*). Pengguna mana pun dapat dengan mudah mem-*bypass* antarmuka web dan mengirimkan permintaan mutasi data secara langsung ke URL endpoint (misalnya menggunakan Fetch API di Console browser, cURL, atau Postman). Jika server tidak memvalidasi hak akses melalui *permission class*, aksi manipulasi data yang tidak sah tersebut akan tetap dieksekusi oleh *database* kita.
+
+### 4. Jelaskan mengapa permintaan yang mengubah data tetap memerlukan token CSRF ketika API memakai SessionAuthentication! Mengapa test yang memakai force_authenticate tidak cukup untuk membuktikan bahwa perlindungan CSRF berjalan?
+Permintaan yang mengubah data tetap memerlukan token CSRF karena `SessionAuthentication` mengandalkan *cookie browser* (`sessionid`) untuk mengenali pengguna yang login. Mengingat *browser* secara otomatis menyertakan *cookie* tersebut pada setiap *request* yang dikirimkan ke domain yang sama (bahkan jika *request* tersebut dipicu oleh pihak ketiga), aplikasi rentan terhadap serangan Cross-Site Request Forgery (CSRF). Penyerang dapat menjebak pengguna yang sedang dalam sesi aktif untuk mengeksekusi *request* mutasi (POST, PUT, PATCH, DELETE) tanpa disadari. Header `X-CSRFToken` diperlukan karena token ini hanya bisa dibaca oleh skrip yang berada pada *origin* yang sama (*Same-Origin Policy*), sehingga server dapat memastikan permintaan benar-benar berasal dari interaksi sah pengguna di website portofolio.
+
+Pengujian yang hanya memakai `force_authenticate` tidak cukup untuk membuktikan perlindungan CSRF karena method tersebut sengaja memotong (*bypass*) alur autentikasi bawaan Django dan langsung menempelkan objek `request.user` ke *request* tanpa melalui proses login nyata ataupun pemeriksaan *middleware* CSRF. Akibatnya, *request* akan selalu dianggap lolos meskipun tanpa token CSRF. Untuk membuktikan bahwa pertahanan CSRF benar-benar aktif menolak *request* ilegal, pengujian harus menggunakan `APIClient(enforce_csrf_checks=True)` yang digabungkan dengan autentikasi berbasis sesi sungguhan melalui `.login()`.
+
+---
+
+## AI Disclosure & Log Prompting
+Dalam pengembangan Tugas 6 ini, saya menggunakan asisten AI sebagai rekan diskusi teknis dan pemecahan masalah, terutama dalam membantu penyesuaian integrasi JavaScript pada frontend serta penelusuran kegagalan unit test.
+
+*   **Tools yang Digunakan:** Gemini 3.1 Pro
+*   **Strategi Prompting:** Saya mengarahkan AI untuk fokus pada penyelesaian *bug* dan implementasi fitur spesifik, seperti menanyakan alur pengiriman request asinkronus pada form modal dan melampirkan pesan *error* terminal saat pengujian test suite.
+*   **Bagian Spesifik yang Dibantu AI:**
+    *   Membantu menyusun skrip JavaScript pada antarmuka frontend untuk menangani pengiriman data dari form modal edit secara asinkronus (`PATCH`) menggunakan Fetch API.
+    *   Membantu menelusuri akar penyebab kegagalan pada 4 unit test lama di `main/tests.py` yang terpengaruh oleh transisi rendering halaman ke AJAX.
+*   **Analisis Kritis Keterbatasan AI & Perbaikan Manual:** 
+    AI sempat memberikan saran template skrip JavaScript yang mengasumsikan penamaan elemen DOM default tutorial, sehingga beberapa fungsi sempat tidak merespons. Sebagai perbaikan manual, saya meninjau kembali kode tersebut dan menyesuaikan ID elemen form, penamaan field payload, serta alur pengisian nilainya agar selaras dengan template sertifikasi saya. Selain itu, pada bagian unit test, saya secara mandiri menyesuaikan *assertion* agar tetap memverifikasi kerangka DOM HTML sekaligus memastikan integritas data melalui pemanggilan endpoint API yang relevan.
+*   **Log Prompting:**
+    *   *Prompt 1:* "Gimana cara bikin script JavaScript buat modal edit sertifikasi ini biar bisa kirim PATCH lewat fetch ke endpoint API tanpa harus ngereload halaman?"
+        *   *Respons AI:* AI memberikan contoh penanganan event submit pada form modal edit menggunakan method `PATCH`, lengkap dengan pembacaan token CSRF dan pengiriman payload dalam format JSON.
+    *   *Prompt 2:* "Test yang di tests.py kok ada 4 yang fail pas di-run ya, padahal yang tests_api lolos semua? [Melampirkan screenshot terminal FAILED (failures=4)]"
+        *   *Respons AI:* AI menjelaskan bahwa test lama gagal karena masih memeriksa keberadaan string data langsung pada respons HTML mentah, padahal data sekarang dimuat secara dinamis via AJAX, lalu memberikan saran penyesuaian assertion-nya.
